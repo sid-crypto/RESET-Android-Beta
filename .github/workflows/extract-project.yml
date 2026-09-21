@@ -1,42 +1,26 @@
-name: Extract RESET Android Project
+name: Check RESET ZIP
 
 on:
   workflow_dispatch:
 
-permissions:
-  contents: write
-
 jobs:
-  extract:
+  check:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Extract project ZIP
+      - name: Inspect uploaded files
         run: |
-          unzip -o RESET-Android-Beta.zip -d extracted
+          echo "===== FILE LIST ====="
+          ls -lah
 
-          if [ -d "extracted/RESET-Android-Beta" ]; then
-            cp -r extracted/RESET-Android-Beta/. .
-          else
-            cp -r extracted/. .
-          fi
+          echo "===== ZIP INFO ====="
+          file RESET-Android-Beta.zip || true
 
-          rm -rf extracted
-          rm -f RESET-Android-Beta.zip
+          echo "===== ZIP TEST ====="
+          unzip -t RESET-Android-Beta.zip || true
 
-      - name: Commit extracted project
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
-          git add -A
-
-          if git diff --cached --quiet; then
-            echo "No changes to commit."
-          else
-            git commit -m "Extract RESET Android Beta project"
-            git push
-          fi
+          echo "===== ZIP SIZE ====="
+          du -h RESET-Android-Beta.zip || true
