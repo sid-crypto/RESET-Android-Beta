@@ -1,0 +1,98 @@
+name: Extract RESET Android Project
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  extract:
+    name: Extract RESET project into repository
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Verify ZIP exists
+        run: |
+          set -e
+
+          if [ ! -f "RESET-Android-Beta.zip" ]; then
+            echo "ERROR: RESET-Android-Beta.zip was not found in repository root."
+            echo "Current files:"
+            find . -maxdepth 2 -type f -print
+            exit 1
+          fi
+
+          echo "ZIP found:"
+          ls -lh "RESET-Android-Beta.zip"
+
+      - name: Validate ZIP
+        run: |
+          set -e
+
+          echo "Testing ZIP integrity..."
+          unzip -t "RESET-Android-Beta.zip"
+
+          echo "ZIP is valid."
+
+      - name: Extract project
+        run: |
+          set -e
+
+          rm -rf "_reset_extract"
+          mkdir "_reset_extract"
+
+          echo "Extracting project..."
+          unzip -q "RESET-Android-Beta.zip" -d "_reset_extract"
+
+          echo "Extracted structure:"
+          find "_reset_extract" -maxdepth 3 -type f -print
+
+      - name: Move project files to repository root
+        run: |
+          set -e
+
+          if [ -d "_reset_extract/RESET-Android-Beta" ]; then
+            echo "Detected RESET-Android-Beta wrapper folder."
+
+            cp -a "_reset_extract/RESET-Android-Beta/." .
+
+          else
+            echo "No wrapper folder detected."
+            echo "Using extracted files directly."
+
+            cp -a "_reset_extract/." .
+          fi
+
+      - name: Remove ZIP and temporary files
+        run: |
+          set -e
+
+          rm -f "RESET-Android-Beta.zip"
+          rm -rf "_reset_extract"
+
+          echo "Final repository structure:"
+          find . -maxdepth 3 -type f \
+            ! -path "./.git/*" \
+            -print | sort
+
+      - name: Commit extracted project
+        run: |
+          set -e
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add -A
+
+          if git diff --cached --quiet; then
+            echo "No changes detected."
+            exit 0
+          fi
+
+          git commit -m "Extract RESET Android Beta project"
+
+          git push origin HEAD:main
