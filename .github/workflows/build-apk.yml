@@ -22,23 +22,60 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Check Android SDK
+      - name: Locate Android SDK tools
         run: |
           echo "ANDROID_HOME=$ANDROID_HOME"
           echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT"
-          sdkmanager --version
+
+          echo "Searching for sdkmanager..."
+
+          find "$ANDROID_HOME" -type f -name sdkmanager -print
 
       - name: Accept Android SDK licenses
         run: |
-          yes | sdkmanager --licenses > /dev/null || true
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+
+          if [ ! -f "$SDKMANAGER" ]; then
+            SDKMANAGER=$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | head -n 1)
+          fi
+
+          echo "Using sdkmanager: $SDKMANAGER"
+
+          yes | "$SDKMANAGER" --licenses > /dev/null || true
 
       - name: Install Android SDK 35
         run: |
-          sdkmanager "platforms;android-35" "build-tools;35.0.0"
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
 
-      - name: Check Android SDK installation
+          if [ ! -f "$SDKMANAGER" ]; then
+            SDKMANAGER=$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | head -n 1)
+          fi
+
+          echo "Using sdkmanager: $SDKMANAGER"
+
+          "$SDKMANAGER" "platforms;android-35" "build-tools;35.0.0"
+
+      - name: Configure Android SDK PATH
         run: |
-          sdkmanager --list_installed | grep -E "platforms;android-35|build-tools;35.0.0" || true
+          SDKMANAGER=$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | head -n 1)
+
+          SDK_DIR=$(dirname "$(dirname "$(dirname "$SDKMANAGER")")")
+
+          echo "SDK command-line tools: $SDK_DIR"
+
+          echo "$SDK_DIR/bin" >> "$GITHUB_PATH"
+          echo "$ANDROID_HOME/platform-tools" >> "$GITHUB_PATH"
+
+      - name: Verify Android SDK
+        run: |
+          echo "Android SDK:"
+          ls -lah "$ANDROID_HOME"
+
+          echo "Build tools:"
+          ls -lah "$ANDROID_HOME/build-tools/35.0.0"
+
+          echo "Platform:"
+          ls -lah "$ANDROID_HOME/platforms/android-35"
 
       - name: Set up Gradle 8.7
         uses: gradle/actions/setup-gradle@v4
@@ -56,9 +93,13 @@ jobs:
       - name: Verify APK
         run: |
           echo "===== APK OUTPUT ====="
+
           ls -lah app/build/outputs/apk/debug/
+
           echo "===== APK CHECK ====="
+
           test -f app/build/outputs/apk/debug/app-debug.apk
+
           echo "APK successfully created."
 
       - name: Upload APK
