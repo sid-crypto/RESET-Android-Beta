@@ -8,91 +8,65 @@ permissions:
 
 jobs:
   extract:
-    name: Extract RESET project into repository
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Verify ZIP exists
+      - name: Extract RESET ZIP
         run: |
           set -e
 
-          if [ ! -f "RESET-Android-Beta.zip" ]; then
-            echo "ERROR: RESET-Android-Beta.zip was not found in repository root."
-            echo "Current files:"
-            find . -maxdepth 2 -type f -print
-            exit 1
-          fi
+          echo "Checking ZIP..."
+          test -f RESET-Android-Beta.zip
 
-          echo "ZIP found:"
-          ls -lh "RESET-Android-Beta.zip"
+          echo "Testing ZIP..."
+          unzip -t RESET-Android-Beta.zip
 
-      - name: Validate ZIP
-        run: |
-          set -e
+          rm -rf _reset_extract
+          mkdir _reset_extract
 
-          echo "Testing ZIP integrity..."
-          unzip -t "RESET-Android-Beta.zip"
+          echo "Extracting..."
+          unzip -q RESET-Android-Beta.zip -d _reset_extract
 
-          echo "ZIP is valid."
-
-      - name: Extract project
-        run: |
-          set -e
-
-          rm -rf "_reset_extract"
-          mkdir "_reset_extract"
-
-          echo "Extracting project..."
-          unzip -q "RESET-Android-Beta.zip" -d "_reset_extract"
-
-          echo "Extracted structure:"
-          find "_reset_extract" -maxdepth 3 -type f -print
-
-      - name: Move project files to repository root
-        run: |
-          set -e
+          echo "Moving project files..."
 
           if [ -d "_reset_extract/RESET-Android-Beta" ]; then
-            echo "Detected RESET-Android-Beta wrapper folder."
-
-            cp -a "_reset_extract/RESET-Android-Beta/." .
-
+            cp -a _reset_extract/RESET-Android-Beta/app .
+            cp -a _reset_extract/RESET-Android-Beta/build.gradle .
+            cp -a _reset_extract/RESET-Android-Beta/settings.gradle .
+            cp -a _reset_extract/RESET-Android-Beta/gradle.properties .
+            cp -a _reset_extract/RESET-Android-Beta/README.md .
           else
-            echo "No wrapper folder detected."
-            echo "Using extracted files directly."
-
-            cp -a "_reset_extract/." .
+            cp -a _reset_extract/app .
+            cp -a _reset_extract/build.gradle .
+            cp -a _reset_extract/settings.gradle .
+            cp -a _reset_extract/gradle.properties .
+            cp -a _reset_extract/README.md .
           fi
 
-      - name: Remove ZIP and temporary files
-        run: |
-          set -e
+          echo "Removing ZIP..."
+          rm -f RESET-Android-Beta.zip
+          rm -rf _reset_extract
 
-          rm -f "RESET-Android-Beta.zip"
-          rm -rf "_reset_extract"
-
-          echo "Final repository structure:"
+          echo "Final files:"
           find . -maxdepth 3 -type f \
             ! -path "./.git/*" \
             -print | sort
 
-      - name: Commit extracted project
+      - name: Commit project files
         run: |
-          set -e
-
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          git add -A
+          git add app build.gradle settings.gradle gradle.properties README.md RESET-Android-Beta.zip
 
           if git diff --cached --quiet; then
-            echo "No changes detected."
+            echo "Nothing to commit."
             exit 0
           fi
 
-          git commit -m "Extract RESET Android Beta project"
+          git commit -m "Extract RESET Android project"
 
-          git push origin HEAD:main
+          git push origin main
